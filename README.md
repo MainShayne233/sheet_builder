@@ -25,7 +25,7 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write simple example 
+TODO: Write simple example
 
 ## Contributing
 
