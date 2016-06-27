@@ -1,6 +1,6 @@
 # SheetBuilder
 
-Sheet Builder is an abstraction of thr axlsx gem that allows you to quickly make and spreadsheet templates that exists as
+Sheet Builder is an abstraction of the axlsx gem that allows you to quickly make and spreadsheet templates that exists as
 arrays of Ruby hashes for easy spreadsheet generation and data input.
 
 TODO:
@@ -35,4 +35,3 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/[USERN
 ## License
 
 The gem is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
-
