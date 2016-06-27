@@ -403,3 +403,10 @@ module SheetBuilder
   end
 
 end
+
+class Axlsx::Worksheet
+
+  attr_accessor :column_title_indexes
+  attr_accessor :row_title_indexes
+
+end
