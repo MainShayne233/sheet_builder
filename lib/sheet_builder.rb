@@ -1,5 +1,3 @@
-require "sheet_builder/version"
-
 module SheetBuilder
 
   class Cell
@@ -67,8 +65,7 @@ module SheetBuilder
     end
   end
 
-  class Builder
-
+  class Blueprint
     attr_accessor :sheet
     attr_accessor :elements
     attr_accessor :column_titles
@@ -80,21 +77,20 @@ module SheetBuilder
     attr_accessor :max
     attr_accessor :column_title_row_height
 
-    def initialize sheet:, blueprint:, column_data: [], row_data: []
-      self.sheet = sheet
-      self.elements = blueprint[:elements] ? blueprint[:elements].map{|elem| SheetBuilder::Element.new(elem)} : []
-      self.column_titles = blueprint[:column_titles] ? blueprint[:column_titles].map{|elem| SheetBuilder::Title.new(elem)} : []
-      self.row_titles = blueprint[:row_titles] ? blueprint[:row_titles].map{|elem| SheetBuilder::Title.new(elem)} : []
-      self.column_data = column_data.map{|elem| SheetBuilder::Cell.new(elem)}
-      self.row_data = row_data.map{|elem| SheetBuilder::Cell.new(elem)}
-      self.column_titles_start = blueprint[:column_titles_start] || [1,1]
-      self.row_titles_start = blueprint[:row_titles_start] || [1,1]
-      self.column_title_row_height = blueprint[:column_title_row_height]
-      build!
+    def initialize options = []
+      self.elements = options[:elements] ? options[:elements].map{|elem| SheetBuilder::Element.new(elem)} : []
+      self.column_titles = options[:column_titles] ? options[:column_titles].map{|elem| SheetBuilder::Title.new(elem)} : []
+      self.row_titles = options[:row_titles] ? options[:row_titles].map{|elem| SheetBuilder::Title.new(elem)} : []
+      self.column_titles_start = options[:column_titles_start] || [1,1]
+      self.row_titles_start = options[:row_titles_start] || [1,1]
+      self.column_title_row_height = options[:column_title_row_height]
     end
 
+    def build! sheet:, column_data: [], row_data: []
 
-    def build!
+      self.sheet = sheet
+      self.column_data = column_data.map{|elem| SheetBuilder::Cell.new(elem)}
+      self.row_data = row_data.map{|elem| SheetBuilder::Cell.new(elem)}
 
       set_column_title_indexes
 
@@ -116,7 +112,7 @@ module SheetBuilder
 
       set_lists_for_row_titles
 
-      # set_column_title_row_height
+      set_column_title_row_height
 
       place_column_data
 
@@ -266,9 +262,8 @@ module SheetBuilder
       end
       list_titles.uniq!
       list_data.uniq!
-      SheetBuilder::Builder.new sheet: lists_sheet,
-                                blueprint: {column_titles: list_titles},
-                                column_data: list_data
+      blueprint = SheetBuilder::Blueprint.new column_titles: list_titles
+      blueprint.build! sheet: lists_sheet, column_data: list_data
       existing_titles_with_lists.each do |elem|
         100.times do |row|
           list_column = current_lists_sheet.column_title_indexes[elem.text]
@@ -324,9 +319,8 @@ module SheetBuilder
       end
       list_titles.uniq!
       list_data.uniq!
-      SheetBuilder::Builder.new sheet: lists_sheet,
-                                blueprint: {column_titles: list_titles},
-                                column_data: list_data
+      blueprint = SheetBuilder::Blueprint.new column_titles: list_titles
+      blueprint.build! sheet: lists_sheet, column_data: list_data
       existing_titles_with_lists.each do |elem|
         100.times do |column|
           list_column = current_lists_sheet.column_title_indexes[elem.text]
@@ -400,13 +394,12 @@ module SheetBuilder
     def current_lists_sheet
       self.sheet.workbook.sheet_by_name 'Lists'
     end
+
   end
 
 end
 
 class Axlsx::Worksheet
-
   attr_accessor :column_title_indexes
   attr_accessor :row_title_indexes
-
 end
