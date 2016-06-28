@@ -1,49 +1,84 @@
 module SheetBuilder
 
-  class Cell
+  class Object
+    def initialize(attrs={})
+      attrs.each { |key, val| send("#{key.to_s}=", val) }
+    end
+  end
+
+  class Cell < Object
     attr_accessor :text
     attr_accessor :title
     attr_accessor :row
     attr_accessor :col
-    def initialize attrs
-      attrs.each {|key, val| self.send("#{key.to_s}=", val)}
+  end
+
+  class Alignment
+    attr_accessor :horizontal, :vertical
+
+    def initialize(horizontal: :left, vertical: :center)
+      @horizontal = horizontal
+      @vertical = vertical
     end
   end
 
-  class Title
-    attr_accessor :text
-    attr_accessor :comment
-    attr_accessor :color
-    attr_accessor :list
-    attr_accessor :hyperlink
+  class Font < Object
+    attr_accessor :name, :size, :color
 
-    def initialize attrs
-      attrs.each {|key, val| self.send("#{key.to_s}=", val)}
-    end
-
-    def combined_style
-      combined_style = {b: true, alignment: {horizontal: :center, vertical: :center}, border: {style: :thick, color: '00000000'}}
-      combined_style.merge!(bg_color: self.color) if self.color
-      combined_style
+    def initialize(attrs={})
+      @name = 'Liberation Sans'
+      @size = 10
+      super
     end
   end
 
-  class Element
-    attr_accessor :text
+  class Format < Object
+    attr_accessor :color, :font, :style, :borders, :border_thickness, :alignment
+
+    def initialize(attrs={})
+      @font = Font.new
+      @alignment = Alignment.new
+      super
+    end
+  end
+
+  class Position
+    attr_writer :col
     attr_accessor :row
-    attr_accessor :col
-    attr_accessor :color
-    attr_accessor :font_color
-    attr_accessor :style
-    attr_accessor :borders
-    attr_accessor :border_thickness
-    attr_accessor :merge
-    attr_accessor :comment
 
-    def initialize attrs
-      attrs.each {|key, val| self.send("#{key.to_s}=", val)}
-      self.col -= 1
+    def initialize(row: 0, col: 0)
+      @row = row
+      @col = col
     end
+
+    # Must subtract 1 from col as it is 0 based, not 1 based.
+    def col
+      @col-1
+    end
+  end
+
+  class Element < Object
+    attr_reader :pos
+    attr_accessor :text, :format, :borders, :border_thickness,
+                  :merge, :comment
+
+    def initialize(attrs={})
+      @pos = Position.new
+      @format = Format.new
+      super
+    end
+
+    def pos=(pos)
+      @pos = Position.new(row: pos[0], col: pos[1])
+    end
+
+    def row; pos.row; end
+    def col; pos.col; end
+    def style; format.style; end
+    def font; format.font; end
+    def color; format.color; end
+    def h_align; format.alignment.horizontal; end
+    def v_align; format.alignment.vertical; end
 
     def combined_style
       combined_style = {}
@@ -54,8 +89,11 @@ module SheetBuilder
         combined_style.merge!(alignment: {horizontal: :center}) if self.style.include? :center
         combined_style.merge!(sz: 12) if self.style.include? :lg_font
       end
+      combined_style.merge!(sz: self.font.size)
+      combined_style.merge!(font_name: self.font.name)
       combined_style.merge!(bg_color: self.color) if self.color
-      combined_style.merge!(fg_color: self.font_color) if self.font_color
+      combined_style.merge!(fg_color: self.font.color)
+      combined_style.merge!(alignment: {horizontal: h_align, vertical: v_align})
       if self.borders == true
         combined_style.merge! border: {style: self.border_thickness || :medium, color: '00000000'}
       elsif self.borders
@@ -65,20 +103,40 @@ module SheetBuilder
     end
   end
 
-  class Blueprint
-    attr_accessor :sheet
-    attr_accessor :elements
-    attr_accessor :column_titles
-    attr_accessor :row_titles
-    attr_accessor :column_data
-    attr_accessor :row_data
-    attr_accessor :column_titles_start
-    attr_accessor :row_titles_start
-    attr_accessor :max
-    attr_accessor :column_title_row_height
+  class Title < Element
+    attr_accessor :list, :hyperlink
 
-    def initialize options = []
-      self.elements = options[:elements] ? options[:elements].map{|elem| SheetBuilder::Element.new(elem)} : []
+    def initialize attrs
+      h_align = :center # Default
+      v_align = :center # Default
+      attrs.each {|key, val| self.send("#{key.to_s}=", val)}
+    end
+
+    def combined_style
+      combined_style = super
+      combined_style.merge!(b: true, border: {style: :thick, color: '00000000'})
+      combined_style.merge!(bg_color: self.color) if self.color
+      combined_style
+    end
+  end
+
+
+  class Blueprint
+    attr_accessor :sheet, :elements, :column_titles, :row_titles, :column_data, :row_data, :column_titles_start,
+                  :row_titles_start, :max, :column_title_row_height, :format
+
+    def initialize options = {}
+      options[:format] ||= Format.new
+
+      self.elements = if options[:elements]
+                        options[:elements].map do |elem|
+                          elem.merge!(format: options[:format]) unless elem[:format]
+                          SheetBuilder::Element.new(elem)
+                        end
+                      else
+                        []
+                      end
+
       self.column_titles = options[:column_titles] ? options[:column_titles].map{|elem| SheetBuilder::Title.new(elem)} : []
       self.row_titles = options[:row_titles] ? options[:row_titles].map{|elem| SheetBuilder::Title.new(elem)} : []
       self.column_titles_start = options[:column_titles_start] || [1,1]
@@ -182,7 +240,7 @@ module SheetBuilder
 
       self.elements.each do |elem|
         row_heights[elem.row] ||= 0
-        height = elem.text.split("\n").count * 10 + 10
+        height = elem.text.split("\n").count * 10 + (elem.font.size / 3)
         row_heights[elem.row] = height if height > row_heights[elem.row]
       end
 
